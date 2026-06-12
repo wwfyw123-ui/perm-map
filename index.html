@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Наше путешествие</title>
-    
-    <!-- Подключаем стили карты Leaflet через интернет -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Подключаем наш файл стилей -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -18,12 +15,30 @@
       <button id="enter-btn">Войти на карту</button>
     </div>
 
+    <!-- Модальное окно для добавления нового места -->
+    <div id="add-marker-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Добавить место</h3>
+        <input type="text" id="place-title" placeholder="Название места..." required>
+        <textarea id="place-desc" placeholder="Описание (зачем нам туда?)..."></textarea>
+        <select id="place-category">
+          <option value="🍔">🍔 Где поесть</option>
+          <option value="🌳">🌳 Где погулять</option>
+          <option value="💖">💖 Романтика / Наше место</option>
+          <option value="🏠">🏠 Где будем жить</option>
+        </select>
+        <div class="modal-buttons">
+          <button id="save-marker-btn">Сохранить</button>
+          <button id="close-modal-btn">Отмена</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Здесь будет карта -->
     <div id="map"></div>
 
-    <!-- Подключаем скрипт карты Leaflet через интернет -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Подключаем наш скрипт -->
-    <script src="main.js"></script>
+    <!-- ВАЖНО: добавили type="module", чтобы работал Firebase -->
+    <script type="module" src="main.js"></script>
   </body>
 </html>
