@@ -82,10 +82,6 @@ body.dark-theme .control-panel {
   align-items: center;
 }
 
-.control-panel.hidden {
-  display: none;
-}
-
 .control-panel button {
   width: 40px;
   height: 40px;
@@ -95,6 +91,9 @@ body.dark-theme .control-panel {
   cursor: pointer;
   font-size: 20px;
   transition: transform 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .control-panel button:hover {
