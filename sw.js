@@ -1,10 +1,12 @@
-const CACHE_NAME = 'travel-map-v6';
+const CACHE_NAME = 'travel-map-v5';
 const urlsToCache = [
   '/',
   '/index.html',
   '/style.css',
   '/main.js',
-  '/manifest.json'
+  '/manifest.json',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
 self.addEventListener('install', (event) => {
