@@ -9,8 +9,10 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="style.css" />
+  
+  <!-- ЯНДЕКС.КАРТЫ API 2.1 -->
+  <script src="https://api-maps.yandex.ru/2.1/?apikey=1c7b1ab0-0902-42b7-9240-373b320d748c&lang=ru_RU"></script>
 </head>
 <body>
   <!-- Выбор персонажа -->
@@ -94,8 +96,9 @@
   <!-- Карта -->
   <div id="map"></div>
 
-  <!-- ПАНЕЛЬ УПРАВЛЕНИЯ (кнопки темы, геолокации, live) -->
+  <!-- ПАНЕЛЬ УПРАВЛЕНИЯ -->
   <div id="control-panel" class="control-panel">
+    <div id="weather-widget" class="weather-widget"></div>
     <button id="theme-toggle" title="Тёмная тема">🌙</button>
     <button id="locate-btn" title="Где я?">📍</button>
     <div id="live-indicator" class="live-dot" title="Кто-то онлайн">●</div>
@@ -107,7 +110,6 @@
     <div class="legend-item"><span class="dot girl-dot"></span> Лера</div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script type="module" src="main.js"></script>
   
   <script>
