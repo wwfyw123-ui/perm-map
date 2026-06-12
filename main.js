@@ -99,28 +99,72 @@ let userLocationMarker = null;
 function updateMapTheme() {
     if (!map) return;
     const isDark = document.body.classList.contains('dark-theme');
-    map.setType(isDark ? 'yandex#night' : 'yandex#map');
+    const currentType = map.getType();
+    const targetType = isDark ? 'yandex#dark' : 'yandex#map';
+    
+    if (currentType !== targetType) {
+        try {
+            map.setType(targetType);
+        } catch (e) {
+            console.warn('Не удалось сменить тип карты:', e);
+            // Fallback: пересоздаём карту с правильным типом
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            map.destroy();
+            initMapWithType(targetType, center, zoom);
+        }
+    }
 }
 
-function initMap() {
+function initMapWithType(type, center, zoom) {
     map = new ymaps.Map("map", {
-        center: [58.0105, 56.2502],
-        zoom: 13,
+        center: center || [58.0105, 56.2502],
+        zoom: zoom || 13,
+        type: type,
         controls: ['zoomControl']
     });
     map.controls.remove('searchControl').remove('trafficControl').remove('typeSelector');
     
-    updateMapTheme();
+    setupMapEvents();
+    loadPlaces();
+}
+
+function initMap() {
+    const isDark = document.body.classList.contains('dark-theme');
+    const mapType = isDark ? 'yandex#dark' : 'yandex#map';
+    initMapWithType(mapType);
+}
+
+function setupMapEvents() {
+    // ===== КЛИК ПО КАРТЕ =====
+    let isDragging = false;
+    let mouseDownPos = null;
     
-    // Клик по карте
-    map.events.add('click', function(e) {
-        if (!currentUser) return;
-        const coords = e.get('coords');
-        currentClickLatLng = { lat: coords[0], lng: coords[1] };
-        modal.classList.remove('hidden');
+    map.events.add('mousedown', function(e) {
+        isDragging = false;
+        mouseDownPos = e.get('position');
     });
     
-    loadPlaces();
+    map.events.add('mousemove', function(e) {
+        if (mouseDownPos) {
+            const dx = Math.abs(e.get('position')[0] - mouseDownPos[0]);
+            const dy = Math.abs(e.get('position')[1] - mouseDownPos[1]);
+            if (dx > 5 || dy > 5) isDragging = true;
+        }
+    });
+    
+    map.events.add('mouseup', function(e) {
+        if (!isDragging && mouseDownPos && currentUser) {
+            const coords = map.options.get('projection').fromGlobalPixels(
+                map.converter.pageToGlobal(e.get('position')), 
+                map.getZoom()
+            );
+            currentClickLatLng = { lat: coords[0], lng: coords[1] };
+            modal.classList.remove('hidden');
+        }
+        mouseDownPos = null;
+        isDragging = false;
+    });
 }
 
 function svgToDataUri(svg) {
