@@ -9,8 +9,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   
-  <!-- 2ГИС через Leaflet плагин -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -30,15 +29,11 @@
     </div>
   </div>
 
-  <!-- Таймер + погода -->
+  <!-- Таймер -->
   <div id="countdown" class="overlay hidden">
     <h1>До встречи осталось:</h1>
     <h2 id="timer">...</h2>
     <p class="distance">грузится типа</p>
-    
-    <!-- ПОГОДА В ТАЙМЕРЕ -->
-    <div id="weather-widget-timer" class="weather-widget-timer"></div>
-    
     <div class="whoami">
       <span id="current-user-display">👤</span>
       <button id="switch-user">Сменить</button>
@@ -113,9 +108,7 @@
     <div class="legend-item"><span class="dot girl-dot"></span> Лера</div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- 2ГИС тайлы через CDN -->
-  <script src="https://maps.api.2gis.ru/2.0/loader.js?pkg=full"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script type="module" src="main.js"></script>
   
   <script>
