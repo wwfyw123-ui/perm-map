@@ -90,60 +90,9 @@ function initTheme() {
     }
 }
 
-// ===== ЯНДЕКС.КАРТЫ =====
-let map;
-let markers = {};
+// ===== ГЕОЛОКАЦИЯ =====
 let userLocationMarker = null;
 
-function initMap() {
-    map = new ymaps.Map("map", {
-        center: [58.0105, 56.2502],
-        zoom: 13,
-        controls: ['zoomControl']
-    });
-    map.controls.remove('searchControl').remove('trafficControl').remove('typeSelector');
-    
-    setupMapEvents();
-    loadPlaces();
-}
-
-function setupMapEvents() {
-    // ===== КЛИК ПО КАРТЕ =====
-    let isDragging = false;
-    let mouseDownPos = null;
-    
-    map.events.add('mousedown', function(e) {
-        isDragging = false;
-        mouseDownPos = e.get('position');
-    });
-    
-    map.events.add('mousemove', function(e) {
-        if (mouseDownPos) {
-            const dx = Math.abs(e.get('position')[0] - mouseDownPos[0]);
-            const dy = Math.abs(e.get('position')[1] - mouseDownPos[1]);
-            if (dx > 5 || dy > 5) isDragging = true;
-        }
-    });
-    
-    map.events.add('mouseup', function(e) {
-        if (!isDragging && mouseDownPos && currentUser) {
-            const coords = map.options.get('projection').fromGlobalPixels(
-                map.converter.pageToGlobal(e.get('position')), 
-                map.getZoom()
-            );
-            currentClickLatLng = { lat: coords[0], lng: coords[1] };
-            modal.classList.remove('hidden');
-        }
-        mouseDownPos = null;
-        isDragging = false;
-    });
-}
-
-function svgToDataUri(svg) {
-    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-}
-
-// ===== ГЕОЛОКАЦИЯ =====
 function initGeolocation() {
     if (!navigator.geolocation) {
         console.log('Геолокация не поддерживается');
@@ -158,31 +107,17 @@ function initGeolocation() {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     
-                    if (userLocationMarker) {
-                        map.geoObjects.remove(userLocationMarker);
-                    }
+                    if (userLocationMarker) map.removeLayer(userLocationMarker);
                     
-                    const pulseSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                        <style>
-                            @keyframes pulseRing {
-                                0% { r: 8; opacity: 0.6; }
-                                100% { r: 20; opacity: 0; }
-                            }
-                            .ring { animation: pulseRing 2s infinite; transform-origin: center; }
-                        </style>
-                        <circle cx="20" cy="20" r="8" fill="#3498db" class="ring"/>
-                        <circle cx="20" cy="20" r="6" fill="#3498db"/>
-                    </svg>`;
-                    
-                    userLocationMarker = new ymaps.Placemark([lat, lng], {}, {
-                        iconLayout: 'default#image',
-                        iconImageHref: svgToDataUri(pulseSvg),
-                        iconImageSize: [40, 40],
-                        iconImageOffset: [-20, -20]
+                    const pulseIcon = L.divIcon({
+                        className: 'pulse-marker',
+                        html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
                     });
                     
-                    map.geoObjects.add(userLocationMarker);
-                    map.setCenter([lat, lng], 15);
+                    userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
+                    map.setView([lat, lng], 15);
                     
                     showDistanceToPerm(lat, lng);
                 },
@@ -206,9 +141,10 @@ function showDistanceToPerm(lat, lng) {
     const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
     const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     
-    map.balloon.open([lat, lng], {
-        contentBody: `📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`
-    });
+    L.popup()
+        .setLatLng([lat, lng])
+        .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
+        .openOn(map);
 }
 
 // ===== LIVE ИНДИКАТОР + УВЕДОМЛЕНИЯ =====
@@ -258,6 +194,13 @@ function requestNotificationPermission() {
         Notification.requestPermission();
     }
 }
+
+// ===== КАРТА =====
+const permCoords = [58.0105, 56.2502];
+const map = L.map('map').setView(permCoords, 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; OpenStreetMap'
+}).addTo(map);
 
 let currentUser = null;
 let currentClickLatLng = null;
@@ -333,6 +276,13 @@ photoInput.addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
+// ===== КЛИК ПО КАРТЕ =====
+map.on('click', function(e) {
+  if (!currentUser) return;
+  currentClickLatLng = e.latlng;
+  modal.classList.remove('hidden');
+});
+
 // ===== ЗАКРЫТИЕ МОДАЛОК =====
 function closeModal() {
   modal.classList.add('hidden');
@@ -378,68 +328,35 @@ async function uploadPhotoToCloudinary(file) {
 function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   const isBoy = author === 'boy';
   const bg = isBoy ? '#3498db' : '#e91e63';
-  const shadowColor = isBoy ? '#667eea' : '#f5576c';
+  const shadow = isBoy ? 'rgba(52,152,219,0.4)' : 'rgba(233,30,99,0.4)';
   const userData = isBoy ? BOY : GIRL;
   
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
-    <defs>
-      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="${shadowColor}" flood-opacity="0.4"/>
-      </filter>
-    </defs>
-    <path d="M20 0 C10 0, 0 10, 0 20 C0 35, 20 48, 20 48 C20 48, 40 35, 40 20 C40 10, 30 0, 20 0Z" 
-          fill="${bg}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
-    <text x="20" y="20" font-size="18" text-anchor="middle" dominant-baseline="central">${category}</text>
-    <circle cx="32" cy="8" r="9" fill="white" stroke="${bg}" stroke-width="1.5"/>
-    <text x="32" y="11" font-size="11" text-anchor="middle" dominant-baseline="central">${userData.emoji}</text>
-  </svg>`;
-  
-  const iconUrl = svgToDataUri(svg);
-
-  const placemark = new ymaps.Placemark([lat, lng], {}, {
-    iconLayout: 'default#image',
-    iconImageHref: iconUrl,
-    iconImageSize: [40, 48],
-    iconImageOffset: [-20, -48],
-    iconShape: { type: 'Circle', coordinates: [20, 24], radius: 20 }
+  const customIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div class="marker-pin" style="background:${bg};box-shadow:0 4px 15px ${shadow};border:3px solid white;">
+      <span class="marker-emoji">${category}</span>
+      <div class="marker-author">${userData.emoji}</div>
+    </div>`,
+    iconSize: [40, 48], iconAnchor: [20, 48], popupAnchor: [0, -50]
   });
 
-  // ===== КЛИК ПО МЕТКЕ — открываем модалку с инфо =====
-  placemark.events.add('click', function(e) {
-    e.stopPropagation();
-    openPlaceModal(id, title, desc, category, photoUrl, author, bg, userData);
-  });
+  let popup = `<div class="popup-card">`;
+  popup += `<div class="popup-header" style="background:${bg}">`;
+  popup += `<span class="popup-category">${category}</span>`;
+  popup += `<span class="popup-author">${userData.emoji} ${userData.name}</span></div>`;
+  popup += `<div class="popup-body"><h4>${title}</h4>`;
+  if (desc) popup += `<p>${desc}</p>`;
+  if (photoUrl) popup += `<img src="${photoUrl}" class="popup-photo" loading="lazy" onclick="window.open('${photoUrl}','_blank')" />`;
+  popup += `</div><div class="popup-footer">`;
+  popup += `<button class="comments-btn" onclick="openComments('${id}','${title.replace(/'/g,"\\'")}')">💬 Комментарии</button>`;
+  if (author === currentUser) popup += `<button class="delete-btn" onclick="deletePlace('${id}')">🗑</button>`;
+  popup += `</div></div>`;
 
-  map.geoObjects.add(placemark);
-  markers[id] = placemark;
-  return placemark;
+  const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+  marker.bindPopup(popup, { maxWidth: 300, className: 'custom-popup' });
+  marker.placeId = id;
+  return marker;
 }
-
-// ===== МОДАЛКА ПРОСМОТРА МЕСТА =====
-window.openPlaceModal = function(id, title, desc, category, photoUrl, author, bg, userData) {
-    currentPlaceId = id;
-    
-    let content = `<div class="popup-card">`;
-    content += `<div class="popup-header" style="background:${bg}">`;
-    content += `<span class="popup-category">${category}</span>`;
-    content += `<span class="popup-author">${userData.emoji} ${userData.name}</span></div>`;
-    content += `<div class="popup-body"><h4>${title}</h4>`;
-    if (desc) content += `<p>${desc}</p>`;
-    if (photoUrl) content += `<img src="${photoUrl}" class="popup-photo" loading="lazy" onclick="window.open('${photoUrl}','_blank')" />`;
-    content += `</div><div class="popup-footer">`;
-    content += `<button class="comments-btn" onclick="openComments('${id}','${title.replace(/'/g,"\\'")}')">💬 Комментарии</button>`;
-    if (author === currentUser) content += `<button class="delete-btn" onclick="deletePlace('${id}')">🗑</button>`;
-    content += `</div></div>`;
-    
-    // Создаём временную модалку для просмотра
-    const viewModal = document.createElement('div');
-    viewModal.className = 'modal';
-    viewModal.id = 'view-place-modal';
-    viewModal.innerHTML = `<div class="modal-content">${content}<button class="close-x" onclick="document.getElementById('view-place-modal').remove()" style="position:absolute;top:10px;right:10px;">✕</button></div>`;
-    viewModal.style.zIndex = '2500';
-    viewModal.addEventListener('click', (e) => { if (e.target === viewModal) viewModal.remove(); });
-    document.body.appendChild(viewModal);
-};
 
 // ===== СОХРАНИТЬ МЕСТО =====
 document.getElementById('save-marker-btn').addEventListener('click', async () => {
@@ -480,24 +397,12 @@ window.deletePlace = async function(id) {
     const q = query(collection(db, "comments"), where("placeId", "==", id));
     const snap = await getDocs(q);
     snap.forEach(async (c) => { await deleteDoc(doc(db, "comments", c.id)); });
-    
-    if (markers[id]) {
-      map.geoObjects.remove(markers[id]);
-      delete markers[id];
-    }
-    
-    // Закрываем модалку просмотра если открыта
-    const viewModal = document.getElementById('view-place-modal');
-    if (viewModal) viewModal.remove();
+    map.eachLayer((layer) => { if (layer instanceof L.Marker && layer.placeId === id) map.removeLayer(layer); });
   } catch (e) { console.error(e); alert("Не удалось удалить: " + e.message); }
 };
 
 // ===== КОММЕНТАРИИ =====
 window.openComments = async function(placeId, placeTitle) {
-  // Закрываем модалку просмотра если открыта
-  const viewModal = document.getElementById('view-place-modal');
-  if (viewModal) viewModal.remove();
-  
   currentPlaceId = placeId;
   commentsPlaceTitle.textContent = `💬 ${placeTitle}`;
   commentsModal.classList.remove('hidden');
@@ -617,9 +522,7 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
   
-  if (!map) {
-    ymaps.ready(initMap);
-  }
+  setTimeout(() => { map.invalidateSize(); loadPlaces(); }, 600);
   
   requestNotificationPermission();
   initLiveIndicator();
