@@ -41,22 +41,29 @@ async function fetchWeather() {
     } catch (e) {
         console.error('Ошибка погоды:', e);
         const widget = document.getElementById('weather-widget');
-        if (widget) widget.innerHTML = `<div class="weather-error">🌤️</div>`;
+        const widgetTimer = document.getElementById('weather-widget-timer');
+        const errorHtml = `<div class="weather-error">🌤️</div>`;
+        if (widget) widget.innerHTML = errorHtml;
+        if (widgetTimer) widgetTimer.innerHTML = errorHtml;
     }
 }
 
 function renderWeather(data) {
-    const widget = document.getElementById('weather-widget');
-    if (!widget) return;
     const temp = Math.round(data.main.temp);
     const icon = data.weather[0].icon;
     const desc = data.weather[0].description;
-    widget.innerHTML = `
+    
+    const html = `
         <div class="weather-card">
             <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${desc}">
             <span class="weather-temp">${temp}°</span>
             <span class="weather-desc">${desc}</span>
         </div>`;
+    
+    const widget = document.getElementById('weather-widget');
+    const widgetTimer = document.getElementById('weather-widget-timer');
+    if (widget) widget.innerHTML = html;
+    if (widgetTimer) widgetTimer.innerHTML = html;
 }
 
 setInterval(fetchWeather, 600000);
@@ -86,121 +93,32 @@ function initTheme() {
         themeBtn.addEventListener('click', () => {
             document.body.classList.toggle('dark-theme');
             localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+            updateMapTiles();
         });
     }
 }
 
-// ===== ГЕОЛОКАЦИЯ =====
-let userLocationMarker = null;
-
-function initGeolocation() {
-    if (!navigator.geolocation) {
-        console.log('Геолокация не поддерживается');
-        return;
-    }
-    
-    const locateBtn = document.getElementById('locate-btn');
-    if (locateBtn) {
-        locateBtn.addEventListener('click', () => {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    
-                    if (userLocationMarker) map.removeLayer(userLocationMarker);
-                    
-                    const pulseIcon = L.divIcon({
-                        className: 'pulse-marker',
-                        html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10]
-                    });
-                    
-                    userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
-                    map.setView([lat, lng], 15);
-                    
-                    showDistanceToPerm(lat, lng);
-                },
-                (err) => {
-                    console.error('Геолокация ошибка:', err);
-                    alert('Не удалось получить геолокацию. Проверь разрешения.');
-                },
-                { enableHighAccuracy: true, timeout: 5000 }
-            );
-        });
-    }
-}
-
-function showDistanceToPerm(lat, lng) {
-    const permLat = 58.0105;
-    const permLng = 56.2502;
-    
-    const R = 6371;
-    const dLat = (permLat - lat) * Math.PI / 180;
-    const dLng = (permLng - lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
-    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-    
-    L.popup()
-        .setLatLng([lat, lng])
-        .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
-        .openOn(map);
-}
-
-// ===== LIVE ИНДИКАТОР + УВЕДОМЛЕНИЯ =====
-let lastPlacesCount = 0;
-let isFirstLoad = true;
-
-function initLiveIndicator() {
-    onSnapshot(collection(db, "places"), (snapshot) => {
-        const count = snapshot.size;
-        
-        const indicator = document.getElementById('live-indicator');
-        if (indicator) {
-            indicator.classList.add('active');
-            setTimeout(() => indicator.classList.remove('active'), 3000);
-        }
-        
-        if (!isFirstLoad && count > lastPlacesCount) {
-            showNotification('💕 Новая метка!', 'Кто-то добавил место на карту');
-        }
-        
-        lastPlacesCount = count;
-        isFirstLoad = false;
-    });
-}
-
-function showNotification(title, body) {
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    
-    const notif = document.createElement('div');
-    notif.className = 'in-app-notification';
-    notif.innerHTML = `<strong>${title}</strong><br>${body}`;
-    document.body.appendChild(notif);
-    
-    setTimeout(() => notif.classList.add('show'), 100);
-    setTimeout(() => {
-        notif.classList.remove('show');
-        setTimeout(() => notif.remove(), 300);
-    }, 4000);
-    
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body, icon: 'icon-192.png' });
-    }
-}
-
-function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-}
-
-// ===== КАРТА =====
+// ===== КАРТА (Leaflet + 2ГИС тайлы) =====
 const permCoords = [58.0105, 56.2502];
 const map = L.map('map').setView(permCoords, 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '&copy; OpenStreetMap'
-}).addTo(map);
+
+// 2ГИС тайлы
+let currentTileLayer;
+function updateMapTiles() {
+    if (currentTileLayer) map.removeLayer(currentTileLayer);
+    
+    const isDark = document.body.classList.contains('dark-theme');
+    const url = isDark 
+        ? 'https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1&ts=online_sd&layer=rd'  // тёмные тайлы 2ГИС
+        : 'https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1&ts=online_sd';           // светлые тайлы 2ГИС
+    
+    currentTileLayer = L.tileLayer(url, {
+        maxZoom: 19,
+        attribution: '© 2GIS'
+    }).addTo(map);
+}
+
+updateMapTiles();
 
 let currentUser = null;
 let currentClickLatLng = null;
@@ -243,6 +161,9 @@ function selectCharacter(user) {
   
   characterSelect.classList.add('hidden');
   countdown.classList.remove('hidden');
+  
+  // Загружаем погоду сразу при показе таймера
+  fetchWeather();
 }
 
 const savedUser = localStorage.getItem('travelUser');
@@ -516,6 +437,109 @@ function updateTimer() {
   document.getElementById('timer').innerText = `${d}д ${h}ч ${m}м`;
 }
 setInterval(updateTimer, 1000); updateTimer();
+
+// ===== ГЕОЛОКАЦИЯ =====
+function initGeolocation() {
+    if (!navigator.geolocation) {
+        console.log('Геолокация не поддерживается');
+        return;
+    }
+    
+    const locateBtn = document.getElementById('locate-btn');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', () => {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    if (userLocationMarker) map.removeLayer(userLocationMarker);
+                    
+                    const pulseIcon = L.divIcon({
+                        className: 'pulse-marker',
+                        html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+                    
+                    userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
+                    map.setView([lat, lng], 15);
+                    
+                    showDistanceToPerm(lat, lng);
+                },
+                (err) => {
+                    console.error('Геолокация ошибка:', err);
+                    alert('Не удалось получить геолокацию. Проверь разрешения.');
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        });
+    }
+}
+
+function showDistanceToPerm(lat, lng) {
+    const permLat = 58.0105;
+    const permLng = 56.2502;
+    
+    const R = 6371;
+    const dLat = (permLat - lat) * Math.PI / 180;
+    const dLng = (permLng - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
+    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    
+    L.popup()
+        .setLatLng([lat, lng])
+        .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
+        .openOn(map);
+}
+
+// ===== LIVE ИНДИКАТОР + УВЕДОМЛЕНИЯ =====
+let lastPlacesCount = 0;
+let isFirstLoad = true;
+
+function initLiveIndicator() {
+    onSnapshot(collection(db, "places"), (snapshot) => {
+        const count = snapshot.size;
+        
+        const indicator = document.getElementById('live-indicator');
+        if (indicator) {
+            indicator.classList.add('active');
+            setTimeout(() => indicator.classList.remove('active'), 3000);
+        }
+        
+        if (!isFirstLoad && count > lastPlacesCount) {
+            showNotification('💕 Новая метка!', 'Кто-то добавил место на карту');
+        }
+        
+        lastPlacesCount = count;
+        isFirstLoad = false;
+    });
+}
+
+function showNotification(title, body) {
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    
+    const notif = document.createElement('div');
+    notif.className = 'in-app-notification';
+    notif.innerHTML = `<strong>${title}</strong><br>${body}`;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => notif.classList.add('show'), 100);
+    setTimeout(() => {
+        notif.classList.remove('show');
+        setTimeout(() => notif.remove(), 300);
+    }, 4000);
+    
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: 'icon-192.png' });
+    }
+}
+
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
 
 // ===== ВХОД НА КАРТУ =====
 document.getElementById('enter-btn').addEventListener('click', () => {
