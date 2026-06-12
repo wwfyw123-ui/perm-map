@@ -46,7 +46,6 @@ function initTheme() {
         document.body.classList.add('dark-theme');
     }
     
-    // Кнопка переключения (добавим в HTML)
     const themeBtn = document.getElementById('theme-toggle');
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
@@ -65,7 +64,6 @@ function initGeolocation() {
         return;
     }
     
-    // Кнопка "Где я?" (добавим в HTML)
     const locateBtn = document.getElementById('locate-btn');
     if (locateBtn) {
         locateBtn.addEventListener('click', () => {
@@ -74,10 +72,8 @@ function initGeolocation() {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     
-                    // Удаляем старый маркер
                     if (userLocationMarker) map.removeLayer(userLocationMarker);
                     
-                    // Создаём пульсирующий маркер
                     const pulseIcon = L.divIcon({
                         className: 'pulse-marker',
                         html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
@@ -88,7 +84,6 @@ function initGeolocation() {
                     userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
                     map.setView([lat, lng], 15);
                     
-                    // Показываем расстояние до Перми
                     showDistanceToPerm(lat, lng);
                 },
                 (err) => {
@@ -105,15 +100,13 @@ function showDistanceToPerm(lat, lng) {
     const permLat = 58.0105;
     const permLng = 56.2502;
     
-    // Расстояние по формуле гаверсинусов
     const R = 6371;
     const dLat = (permLat - lat) * Math.PI / 180;
     const dLng = (permLng - lng) * Math.PI / 180;
     const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
     const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     
-    // Показываем на карте
-    const distancePopup = L.popup()
+    L.popup()
         .setLatLng([lat, lng])
         .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
         .openOn(map);
@@ -124,18 +117,15 @@ let lastPlacesCount = 0;
 let isFirstLoad = true;
 
 function initLiveIndicator() {
-    // Слушаем изменения в реальном времени
     onSnapshot(collection(db, "places"), (snapshot) => {
         const count = snapshot.size;
         
-        // Показываем индикатор "кто-то онлайн"
         const indicator = document.getElementById('live-indicator');
         if (indicator) {
             indicator.classList.add('active');
             setTimeout(() => indicator.classList.remove('active'), 3000);
         }
         
-        // Уведомление о новой метке (не первый раз)
         if (!isFirstLoad && count > lastPlacesCount) {
             showNotification('💕 Новая метка!', 'Кто-то добавил место на карту');
         }
@@ -146,10 +136,8 @@ function initLiveIndicator() {
 }
 
 function showNotification(title, body) {
-    // Вибрация (на мобильных)
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     
-    // Визуальное уведомление на сайте
     const notif = document.createElement('div');
     notif.className = 'in-app-notification';
     notif.innerHTML = `<strong>${title}</strong><br>${body}`;
@@ -161,13 +149,11 @@ function showNotification(title, body) {
         setTimeout(() => notif.remove(), 300);
     }, 4000);
     
-    // Попробуем системное уведомление (если разрешено)
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, { body, icon: 'icon-192.png' });
     }
 }
 
-// Запрос разрешения на уведомления
 function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
@@ -500,9 +486,9 @@ setInterval(updateTimer, 1000); updateTimer();
 document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
+  
   setTimeout(() => { map.invalidateSize(); loadPlaces(); }, 600);
   
-  // Запрашиваем уведомления при входе
   requestNotificationPermission();
   initLiveIndicator();
 });
