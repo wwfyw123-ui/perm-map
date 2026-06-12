@@ -22,7 +22,7 @@ map.on('click', function(e) {
 
 // --- ЛОГИКА ТАЙМЕРА ---
 // ВАЖНО: Замени дату на реальную дату вашего свидания! (Год-Месяц-День T Часы:Минуты)
-const meetingDate = new Date('2024-12-31T12:00:00'); 
+const meetingDate = new Date('2026-06-23T06:00:00'); 
 const timerElement = document.getElementById('timer');
 const enterBtn = document.getElementById('enter-btn');
 const overlay = document.getElementById('countdown');
