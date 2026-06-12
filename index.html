@@ -6,59 +6,112 @@
   <meta name="theme-color" content="#ff4757" />
   <title>Наше путешествие</title>
   
-  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  
-  <!-- Твои стили -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Таймер до встречи -->
-  <div id="countdown" class="overlay">
+  <!-- ===== ВЫБОР ПЕРСОНАЖА ===== -->
+  <div id="character-select" class="overlay">
+    <h1>Кто ты? 💕</h1>
+    <p class="subtitle">Выбери, чтобы видеть метки друг друга</p>
+    <div class="character-buttons">
+      <button id="btn-boy" class="char-btn boy">
+        <span class="char-emoji">🧑</span>
+        <span class="char-name">Я (2000 км)</span>
+      </button>
+      <button id="btn-girl" class="char-btn girl">
+        <span class="char-emoji">👩</span>
+        <span class="char-name">Она (в Перми)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== ТАЙМЕР ===== -->
+  <div id="countdown" class="overlay hidden">
     <h1>До встречи осталось:</h1>
     <h2 id="timer">...</h2>
+    <p class="distance">🚗 2000 км любви...</p>
+    <div class="whoami">
+      <span id="current-user-display">👤</span>
+      <button id="switch-user">Сменить</button>
+    </div>
     <button id="enter-btn">Войти на карту</button>
   </div>
 
-  <!-- Модальное окно для добавления нового места -->
+  <!-- ===== МОДАЛКА ДОБАВЛЕНИЯ МЕСТА ===== -->
   <div id="add-marker-modal" class="modal hidden">
     <div class="modal-content">
-      <h3>Добавить место</h3>
+      <h3>📍 Добавить место</h3>
+      <div class="author-badge" id="modal-author">🧑 Моя метка</div>
+      
       <input type="text" id="place-title" placeholder="Название места..." required />
       <textarea id="place-desc" placeholder="Описание (зачем нам туда?)..."></textarea>
+      
       <select id="place-category">
         <option value="🍔">🍔 Где поесть</option>
         <option value="🌳">🌳 Где погулять</option>
         <option value="💖">💖 Романтика / Наше место</option>
         <option value="🏠">🏠 Где будем жить</option>
+        <option value="📸">📸 Красивое место для фото</option>
+        <option value="🎁">🎁 Подарок / Сюрприз</option>
+        <option value="🚗">🚗 Маршрут / Дорога</option>
       </select>
+      
+      <div class="photo-upload">
+        <label for="place-photo">📷 Добавить фото:</label>
+        <input type="file" id="place-photo" accept="image/*" />
+        <div id="photo-preview" class="photo-preview hidden"></div>
+      </div>
+      
       <div class="modal-buttons">
-        <button id="save-marker-btn">Сохранить</button>
-        <button id="close-modal-btn">Отмена</button>
+        <button id="save-marker-btn">💾 Сохранить</button>
+        <button id="close-modal-btn">❌ Отмена</button>
       </div>
     </div>
   </div>
 
-  <!-- Карта -->
+  <!-- ===== МОДАЛКА КОММЕНТАРИЕВ ===== -->
+  <div id="comments-modal" class="modal hidden">
+    <div class="modal-content comments-content">
+      <div class="comments-header">
+        <h3 id="comments-place-title">💬 Комментарии</h3>
+        <button id="close-comments-btn" class="close-x">✕</button>
+      </div>
+      
+      <div id="comments-list" class="comments-list">
+        <!-- Комментарии загружаются сюда -->
+      </div>
+      
+      <div class="add-comment">
+        <div class="comment-author-badge" id="comment-author">🧑</div>
+        <textarea id="comment-text" placeholder="Напиши мнение..."></textarea>
+        <button id="send-comment-btn">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== КАРТА ===== -->
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
+  <!-- ===== ЛЕГЕНДА ===== -->
+  <div id="legend" class="legend hidden">
+    <div class="legend-item"><span class="dot boy-dot"></span> Мои метки</div>
+    <div class="legend-item"><span class="dot girl-dot"></span> Её метки</div>
+    <div class="legend-item"><span class="dot both-dot"></span> Наши места</div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  
-  <!-- Firebase + твой код -->
   <script type="module" src="main.js"></script>
   
-  <!-- Регистрация Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('SW registered:', reg.scope))
-          .catch(err => console.log('SW registration failed:', err));
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW error:', err));
       });
     }
   </script>
