@@ -1,4 +1,4 @@
-// Подавляем мусорные ошибки расширений
+// ===== ПОДАВЛЕНИЕ ОШИБОК РАСШИРЕНИЙ =====
 window.addEventListener('error', (e) => {
     if (e.message && (e.message.includes('runtime.lastError') || e.message.includes('message port'))) {
         e.stopImmediatePropagation();
@@ -6,9 +6,9 @@ window.addEventListener('error', (e) => {
     }
 });
 
-// Firebase
+// ===== FIREBASE =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCZH3ZrRWqhr25goGwGjJUHCqCiYoHxqiM",
@@ -22,22 +22,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Cloudinary настройки (ТВОЙ АККАУНТ)
+// ===== CLOUDINARY =====
 const CLOUDINARY_CLOUD_NAME = 'dbtwgtle5';
 const CLOUDINARY_UPLOAD_PRESET = 'travel_map';
 
-// Персонажи
+// ===== ПЕРСОНАЖИ =====
 const BOY = {
-  id: 'boy', name: 'Я', emoji: '🧑', color: '#3498db',
+  id: 'boy', name: 'Леша', emoji: '🧑', color: '#3498db',
   gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
 };
 
 const GIRL = {
-  id: 'girl', name: 'Она', emoji: '👩', color: '#e91e63',
+  id: 'girl', name: 'Лера', emoji: '👩', color: '#e91e63',
   gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
 };
 
-// Карта
+// ===== КАРТА =====
 const permCoords = [58.0105, 56.2502];
 const map = L.map('map').setView(permCoords, 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -49,7 +49,7 @@ let currentClickLatLng = null;
 let currentPlaceId = null;
 let selectedPhotoFile = null;
 
-// DOM
+// ===== DOM =====
 const characterSelect = document.getElementById('character-select');
 const countdown = document.getElementById('countdown');
 const modal = document.getElementById('add-marker-modal');
@@ -68,7 +68,7 @@ const commentText = document.getElementById('comment-text');
 const commentAuthor = document.getElementById('comment-author');
 const commentsPlaceTitle = document.getElementById('comments-place-title');
 
-// Выбор персонажа
+// ===== ВЫБОР ПЕРСОНАЖА =====
 document.getElementById('btn-boy').addEventListener('click', () => selectCharacter('boy'));
 document.getElementById('btn-girl').addEventListener('click', () => selectCharacter('girl'));
 
@@ -78,7 +78,7 @@ function selectCharacter(user) {
   localStorage.setItem('travelUser', user);
   
   document.getElementById('current-user-display').textContent = `${userData.emoji} ${userData.name}`;
-  modalAuthor.textContent = `${userData.emoji} ${userData.name === 'Я' ? 'Моя метка' : 'Её метка'}`;
+  modalAuthor.textContent = `${userData.emoji} ${userData.name === 'Леша' ? 'Моя метка' : 'Её метка'}`;
   commentAuthor.textContent = userData.emoji;
   modalAuthor.className = `author-badge ${user}`;
   commentAuthor.className = `comment-author-badge ${user}`;
@@ -100,7 +100,7 @@ document.getElementById('switch-user').addEventListener('click', () => {
   localStorage.removeItem('travelUser');
 });
 
-// Превью фото
+// ===== ПРЕВЬЮ ФОТО =====
 photoInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -118,14 +118,14 @@ photoInput.addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
-// Клик по карте
+// ===== КЛИК ПО КАРТЕ =====
 map.on('click', function(e) {
   if (!currentUser) return;
   currentClickLatLng = e.latlng;
   modal.classList.remove('hidden');
 });
 
-// Закрытие модалок
+// ===== ЗАКРЫТИЕ МОДАЛОК =====
 function closeModal() {
   modal.classList.add('hidden');
   titleInput.value = '';
@@ -146,7 +146,7 @@ document.getElementById('close-comments-btn').addEventListener('click', () => {
 });
 commentsModal.addEventListener('click', (e) => { if (e.target === commentsModal) commentsModal.classList.add('hidden'); });
 
-// Загрузка фото в Cloudinary
+// ===== ЗАГРУЗКА ФОТО В CLOUDINARY =====
 async function uploadPhotoToCloudinary(file) {
   if (!file) return null;
   const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
@@ -156,7 +156,7 @@ async function uploadPhotoToCloudinary(file) {
   
   try {
     const response = await fetch(url, { method: 'POST', body: formData });
-    if (!response.ok) throw new Error('Upload failed');
+    if (!response.ok) throw new Error('Upload failed: ' + response.status);
     const data = await response.json();
     return data.secure_url.replace('/upload/', '/upload/w_800,q_auto,f_auto/');
   } catch (e) {
@@ -166,7 +166,7 @@ async function uploadPhotoToCloudinary(file) {
   }
 }
 
-// Создание маркера
+// ===== СОЗДАНИЕ МАРКЕРА =====
 function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   const isBoy = author === 'boy';
   const bg = isBoy ? '#3498db' : '#e91e63';
@@ -200,7 +200,7 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   return marker;
 }
 
-// Сохранить место
+// ===== СОХРАНИТЬ МЕСТО =====
 document.getElementById('save-marker-btn').addEventListener('click', async () => {
   if (!currentClickLatLng) { alert('Сначала кликни по карте!'); return; }
   const title = titleInput.value.trim();
@@ -224,14 +224,14 @@ document.getElementById('save-marker-btn').addEventListener('click', async () =>
     addMarkerToMap(docRef.id, currentClickLatLng.lat, currentClickLatLng.lng, title, desc, category, photoUrl, currentUser);
     closeModal();
   } catch (e) {
-    console.error("Ошибка:", e);
-    alert("Ошибка сохранения!");
+    console.error("Ошибка сохранения:", e);
+    alert("Ошибка сохранения! " + e.message);
   } finally {
     btn.disabled = false; btn.textContent = '💾 Сохранить';
   }
 });
 
-// Удаление
+// ===== УДАЛЕНИЕ =====
 window.deletePlace = async function(id) {
   if (!confirm('Удалить это место? Все комментарии тоже удалятся.')) return;
   try {
@@ -240,10 +240,10 @@ window.deletePlace = async function(id) {
     const snap = await getDocs(q);
     snap.forEach(async (c) => { await deleteDoc(doc(db, "comments", c.id)); });
     map.eachLayer((layer) => { if (layer instanceof L.Marker && layer.placeId === id) map.removeLayer(layer); });
-  } catch (e) { console.error(e); alert("Не удалось удалить"); }
+  } catch (e) { console.error(e); alert("Не удалось удалить: " + e.message); }
 };
 
-// Комментарии
+// ===== КОММЕНТАРИИ (БЕЗ orderBy — СОРТИРОВКА ВРУЧНУЮ) =====
 window.openComments = async function(placeId, placeTitle) {
   currentPlaceId = placeId;
   commentsPlaceTitle.textContent = `💬 ${placeTitle}`;
@@ -253,47 +253,82 @@ window.openComments = async function(placeId, placeTitle) {
 
 async function loadComments(placeId) {
   commentsList.innerHTML = '<div class="loading">Загрузка...</div>';
+  
   try {
-    const q = query(collection(db, "comments"), where("placeId", "==", placeId), orderBy("createdAt", "asc"));
+    // УБРАЛ orderBy — Firebase НЕ требует индекс!
+    const q = query(collection(db, "comments"), where("placeId", "==", placeId));
     const snap = await getDocs(q);
-    if (snap.empty) { commentsList.innerHTML = '<div class="no-comments">Пока нет комментариев. Будь первым! 💕</div>'; return; }
+    
+    if (snap.empty) {
+      commentsList.innerHTML = '<div class="no-comments">Пока нет комментариев. Будь первым! 💕</div>';
+      return;
+    }
+    
+    // СОРТИРУЕМ ВРУЧНУЮ НА КЛИЕНТЕ
+    const comments = [];
+    snap.forEach((doc) => { comments.push({ id: doc.id, ...doc.data() }); });
+    comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     
     commentsList.innerHTML = '';
-    snap.forEach((doc) => {
-      const data = doc.data();
+    comments.forEach((data) => {
       const userData = data.author === 'boy' ? BOY : GIRL;
       const isMe = data.author === currentUser;
+      
       const el = document.createElement('div');
       el.className = `comment ${isMe ? 'comment-mine' : 'comment-hers'}`;
       el.innerHTML = `
         <div class="comment-avatar" style="background:${userData.color}">${userData.emoji}</div>
         <div class="comment-bubble">
-          <div class="comment-header"><span class="comment-name">${userData.name}</span><span class="comment-time">${formatTime(data.createdAt)}</span></div>
+          <div class="comment-header">
+            <span class="comment-name">${userData.name}</span>
+            <span class="comment-time">${formatTime(data.createdAt)}</span>
+          </div>
           <div class="comment-text">${escapeHtml(data.text)}</div>
         </div>`;
       commentsList.appendChild(el);
     });
+    
     commentsList.scrollTop = commentsList.scrollHeight;
-  } catch (e) { console.error(e); commentsList.innerHTML = '<div class="error">Ошибка загрузки 💔</div>'; }
+    
+  } catch (e) {
+    console.error("Ошибка загрузки комментариев:", e);
+    commentsList.innerHTML = `<div class="error">Ошибка загрузки 💔<<br><small>${e.message}</small></div>`;
+  }
 }
 
 document.getElementById('send-comment-btn').addEventListener('click', async () => {
   const text = commentText.value.trim();
   if (!text || !currentPlaceId) return;
+  
   try {
     const btn = document.getElementById('send-comment-btn');
     btn.disabled = true; btn.textContent = '...';
-    await addDoc(collection(db, "comments"), { placeId: currentPlaceId, author: currentUser, text, createdAt: new Date().toISOString() });
+    
+    await addDoc(collection(db, "comments"), {
+      placeId: currentPlaceId, author: currentUser, text,
+      createdAt: new Date().toISOString()
+    });
+    
     commentText.value = '';
     await loadComments(currentPlaceId);
-  } catch (e) { console.error(e); alert("Не удалось отправить"); }
-  finally { const btn = document.getElementById('send-comment-btn'); btn.disabled = false; btn.textContent = 'Отправить'; }
+    
+  } catch (e) {
+    console.error("Ошибка отправки:", e);
+    alert("Не удалось отправить: " + e.message);
+  } finally {
+    const btn = document.getElementById('send-comment-btn');
+    btn.disabled = false; btn.textContent = 'Отправить';
+  }
 });
 
 commentText.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-comment-btn').click(); }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('send-comment-btn').click();
+  }
 });
 
+// ===== УТИЛИТЫ =====
 function formatTime(iso) {
   const d = new Date(iso), n = new Date(), diff = (n-d)/1000;
   if (diff < 60) return 'только что';
@@ -304,7 +339,7 @@ function formatTime(iso) {
 
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-// Загрузка мест
+// ===== ЗАГРУЗКА МЕСТ =====
 async function loadPlaces() {
   try {
     const snap = await getDocs(collection(db, "places"));
@@ -313,10 +348,10 @@ async function loadPlaces() {
       addMarkerToMap(doc.id, d.lat, d.lng, d.title, d.desc, d.category, d.photoUrl, d.author || 'boy');
     });
     console.log(`✅ Загружено ${snap.size} мест`);
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error("Ошибка загрузки мест:", e); }
 }
 
-// Таймер
+// ===== ТАЙМЕР =====
 const meetingDate = new Date('2026-06-23T06:00:00');
 function updateTimer() {
   const diff = meetingDate - new Date();
@@ -326,7 +361,7 @@ function updateTimer() {
 }
 setInterval(updateTimer, 1000); updateTimer();
 
-// Вход на карту
+// ===== ВХОД НА КАРТУ =====
 document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
