@@ -1,12 +1,12 @@
-const CACHE_NAME = 'travel-map-v4';
+const CACHE_NAME = 'travel-map-v5';
 const urlsToCache = [
   '/',
   '/index.html',
   '/style.css',
   '/main.js',
   '/manifest.json',
-  '/icon-192.png',
-  'https://api-maps.yandex.ru/2.1/?apikey=1c7b1ab0-0902-42b7-9240-373b320d748c&lang=ru_RU'
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
 self.addEventListener('install', (event) => {
