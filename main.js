@@ -86,7 +86,6 @@ function initTheme() {
         themeBtn.addEventListener('click', () => {
             document.body.classList.toggle('dark-theme');
             localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
-            updateMapTheme();
         });
     }
 }
@@ -96,43 +95,16 @@ let map;
 let markers = {};
 let userLocationMarker = null;
 
-function updateMapTheme() {
-    if (!map) return;
-    const isDark = document.body.classList.contains('dark-theme');
-    const currentType = map.getType();
-    const targetType = isDark ? 'yandex#dark' : 'yandex#map';
-    
-    if (currentType !== targetType) {
-        try {
-            map.setType(targetType);
-        } catch (e) {
-            console.warn('Не удалось сменить тип карты:', e);
-            // Fallback: пересоздаём карту с правильным типом
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            map.destroy();
-            initMapWithType(targetType, center, zoom);
-        }
-    }
-}
-
-function initMapWithType(type, center, zoom) {
+function initMap() {
     map = new ymaps.Map("map", {
-        center: center || [58.0105, 56.2502],
-        zoom: zoom || 13,
-        type: type,
+        center: [58.0105, 56.2502],
+        zoom: 13,
         controls: ['zoomControl']
     });
     map.controls.remove('searchControl').remove('trafficControl').remove('typeSelector');
     
     setupMapEvents();
     loadPlaces();
-}
-
-function initMap() {
-    const isDark = document.body.classList.contains('dark-theme');
-    const mapType = isDark ? 'yandex#dark' : 'yandex#map';
-    initMapWithType(mapType);
 }
 
 function setupMapEvents() {
@@ -424,21 +396,7 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   
   const iconUrl = svgToDataUri(svg);
 
-  let popup = `<div class="popup-card">`;
-  popup += `<div class="popup-header" style="background:${bg}">`;
-  popup += `<span class="popup-category">${category}</span>`;
-  popup += `<span class="popup-author">${userData.emoji} ${userData.name}</span></div>`;
-  popup += `<div class="popup-body"><h4>${title}</h4>`;
-  if (desc) popup += `<p>${desc}</p>`;
-  if (photoUrl) popup += `<img src="${photoUrl}" class="popup-photo" loading="lazy" onclick="window.open('${photoUrl}','_blank')" />`;
-  popup += `</div><div class="popup-footer">`;
-  popup += `<button class="comments-btn" onclick="openComments('${id}','${title.replace(/'/g,"\\'")}')">💬 Комментарии</button>`;
-  if (author === currentUser) popup += `<button class="delete-btn" onclick="deletePlace('${id}')">🗑</button>`;
-  popup += `</div></div>`;
-
-  const placemark = new ymaps.Placemark([lat, lng], {
-    balloonContent: popup
-  }, {
+  const placemark = new ymaps.Placemark([lat, lng], {}, {
     iconLayout: 'default#image',
     iconImageHref: iconUrl,
     iconImageSize: [40, 48],
@@ -446,10 +404,42 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
     iconShape: { type: 'Circle', coordinates: [20, 24], radius: 20 }
   });
 
+  // ===== КЛИК ПО МЕТКЕ — открываем модалку с инфо =====
+  placemark.events.add('click', function(e) {
+    e.stopPropagation();
+    openPlaceModal(id, title, desc, category, photoUrl, author, bg, userData);
+  });
+
   map.geoObjects.add(placemark);
   markers[id] = placemark;
   return placemark;
 }
+
+// ===== МОДАЛКА ПРОСМОТРА МЕСТА =====
+window.openPlaceModal = function(id, title, desc, category, photoUrl, author, bg, userData) {
+    currentPlaceId = id;
+    
+    let content = `<div class="popup-card">`;
+    content += `<div class="popup-header" style="background:${bg}">`;
+    content += `<span class="popup-category">${category}</span>`;
+    content += `<span class="popup-author">${userData.emoji} ${userData.name}</span></div>`;
+    content += `<div class="popup-body"><h4>${title}</h4>`;
+    if (desc) content += `<p>${desc}</p>`;
+    if (photoUrl) content += `<img src="${photoUrl}" class="popup-photo" loading="lazy" onclick="window.open('${photoUrl}','_blank')" />`;
+    content += `</div><div class="popup-footer">`;
+    content += `<button class="comments-btn" onclick="openComments('${id}','${title.replace(/'/g,"\\'")}')">💬 Комментарии</button>`;
+    if (author === currentUser) content += `<button class="delete-btn" onclick="deletePlace('${id}')">🗑</button>`;
+    content += `</div></div>`;
+    
+    // Создаём временную модалку для просмотра
+    const viewModal = document.createElement('div');
+    viewModal.className = 'modal';
+    viewModal.id = 'view-place-modal';
+    viewModal.innerHTML = `<div class="modal-content">${content}<button class="close-x" onclick="document.getElementById('view-place-modal').remove()" style="position:absolute;top:10px;right:10px;">✕</button></div>`;
+    viewModal.style.zIndex = '2500';
+    viewModal.addEventListener('click', (e) => { if (e.target === viewModal) viewModal.remove(); });
+    document.body.appendChild(viewModal);
+};
 
 // ===== СОХРАНИТЬ МЕСТО =====
 document.getElementById('save-marker-btn').addEventListener('click', async () => {
@@ -495,11 +485,19 @@ window.deletePlace = async function(id) {
       map.geoObjects.remove(markers[id]);
       delete markers[id];
     }
+    
+    // Закрываем модалку просмотра если открыта
+    const viewModal = document.getElementById('view-place-modal');
+    if (viewModal) viewModal.remove();
   } catch (e) { console.error(e); alert("Не удалось удалить: " + e.message); }
 };
 
 // ===== КОММЕНТАРИИ =====
 window.openComments = async function(placeId, placeTitle) {
+  // Закрываем модалку просмотра если открыта
+  const viewModal = document.getElementById('view-place-modal');
+  if (viewModal) viewModal.remove();
+  
   currentPlaceId = placeId;
   commentsPlaceTitle.textContent = `💬 ${placeTitle}`;
   commentsModal.classList.remove('hidden');
