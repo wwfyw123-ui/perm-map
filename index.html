@@ -20,7 +20,7 @@
     <div class="character-buttons">
       <button id="btn-boy" class="char-btn boy">
         <span class="char-emoji">🧑</span>
-        <span class="char-name">Я (леша)</span>
+        <span class="char-name">Я (Леша)</span>
       </button>
       <button id="btn-girl" class="char-btn girl">
         <span class="char-emoji">👩</span>
@@ -94,10 +94,17 @@
   <!-- Карта -->
   <div id="map"></div>
 
+  <!-- Панель управления -->
+  <div id="control-panel" class="control-panel hidden">
+    <button id="theme-toggle" title="Тёмная тема">🌙</button>
+    <button id="locate-btn" title="Где я?">📍</button>
+    <div id="live-indicator" class="live-dot" title="Кто-то онлайн">●</div>
+  </div>
+
   <!-- Легенда -->
   <div id="legend" class="legend hidden">
-    <div class="legend-item"><span class="dot boy-dot"></span> Мои метки</div>
-    <div class="legend-item"><span class="dot girl-dot"></span> Её метки</div>
+    <div class="legend-item"><span class="dot boy-dot"></span> Леша</div>
+    <div class="legend-item"><span class="dot girl-dot"></span> Лера</div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
