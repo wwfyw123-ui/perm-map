@@ -110,6 +110,10 @@ body.dark-theme .weather-card {
   margin-right: 5px;
 }
 
+.weather-widget-timer {
+  margin: 10px 0;
+}
+
 .weather-card {
   display: flex;
   align-items: center;
