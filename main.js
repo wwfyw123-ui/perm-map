@@ -1,4 +1,4 @@
-// Подавляем мусорные ошибки расширений
+// ===== ПОДАВЛЕНИЕ ОШИБОК РАСШИРЕНИЙ =====
 window.addEventListener('error', (e) => {
     if (e.message && (e.message.includes('runtime.lastError') || e.message.includes('message port'))) {
         e.stopImmediatePropagation();
@@ -6,10 +6,9 @@ window.addEventListener('error', (e) => {
     }
 });
 
-// Firebase
+// ===== FIREBASE =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCZH3ZrRWqhr25goGwGjJUHCqCiYoHxqiM",
@@ -22,12 +21,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
-// ===== ГЛОБАЛЬНОЕ СОСТОЯНИЕ =====
-let currentUser = null; // 'boy' или 'girl'
-let currentPlaceId = null; // для комментариев
+// ===== CLOUDINARY НАСТРОЙКИ =====
+// ЗАМЕНИ ЭТИ ДВА ЗНАЧЕНИЯ:
+const CLOUDINARY_CLOUD_NAME = 'ТВОЙ_CLOUD_NAME'; // Например: 'dxabc123'
+const CLOUDINARY_UPLOAD_PRESET = 'travel_map';   // Тот что создал в пресете
 
+// ===== ПЕРСОНАЖИ =====
 const BOY = {
   id: 'boy',
   name: 'Я',
@@ -52,10 +52,12 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap'
 }).addTo(map);
 
+let currentUser = null;
 let currentClickLatLng = null;
+let currentPlaceId = null;
 let selectedPhotoFile = null;
 
-// ===== DOM ЭЛЕМЕНТЫ =====
+// ===== DOM =====
 const characterSelect = document.getElementById('character-select');
 const countdown = document.getElementById('countdown');
 const modal = document.getElementById('add-marker-modal');
@@ -82,22 +84,18 @@ function selectCharacter(user) {
   currentUser = user;
   const userData = user === 'boy' ? BOY : GIRL;
   
-  // Сохраняем в localStorage
   localStorage.setItem('travelUser', user);
   
-  // Обновляем UI
   document.getElementById('current-user-display').textContent = `${userData.emoji} ${userData.name}`;
   modalAuthor.textContent = `${userData.emoji} ${userData.name === 'Я' ? 'Моя метка' : 'Её метка'}`;
   commentAuthor.textContent = userData.emoji;
   modalAuthor.className = `author-badge ${user}`;
   commentAuthor.className = `comment-author-badge ${user}`;
   
-  // Переходим к таймеру
   characterSelect.classList.add('hidden');
   countdown.classList.remove('hidden');
 }
 
-// Проверяем сохранённый выбор
 const savedUser = localStorage.getItem('travelUser');
 if (savedUser) {
   characterSelect.classList.add('hidden');
@@ -105,7 +103,6 @@ if (savedUser) {
   selectCharacter(savedUser);
 }
 
-// Сменить пользователя
 document.getElementById('switch-user').addEventListener('click', () => {
   countdown.classList.add('hidden');
   characterSelect.classList.remove('hidden');
@@ -116,6 +113,13 @@ document.getElementById('switch-user').addEventListener('click', () => {
 photoInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  
+  // Проверка размера (макс 5MB для Cloudinary free)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Фото слишком большое! Максимум 5MB');
+    photoInput.value = '';
+    return;
+  }
   
   selectedPhotoFile = file;
   const reader = new FileReader();
@@ -154,13 +158,41 @@ document.getElementById('close-comments-btn').addEventListener('click', () => {
 });
 commentsModal.addEventListener('click', (e) => { if (e.target === commentsModal) commentsModal.classList.add('hidden'); });
 
+// ===== ЗАГРУЗКА ФОТО В CLOUDINARY =====
+async function uploadPhotoToCloudinary(file) {
+  if (!file) return null;
+  
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) throw new Error('Upload failed');
+    
+    const data = await response.json();
+    // Возвращаем оптимизированную ссылку (авто-сжатие, webp)
+    return data.secure_url.replace('/upload/', '/upload/w_800,q_auto,f_auto/');
+    
+  } catch (e) {
+    console.error('Cloudinary error:', e);
+    alert('Ошибка загрузки фото. Проверь настройки Cloudinary.');
+    return null;
+  }
+}
+
 // ===== СОЗДАНИЕ МАРКЕРА =====
 function getMarkerStyle(author) {
   const isBoy = author === 'boy';
   return {
     bg: isBoy ? '#3498db' : '#e91e63',
-    shadow: isBoy ? 'rgba(52, 152, 219, 0.4)' : 'rgba(233, 30, 99, 0.4)',
-    border: isBoy ? '#2980b9' : '#c2185b'
+    shadow: isBoy ? 'rgba(52, 152, 219, 0.4)' : 'rgba(233, 30, 99, 0.4)'
   };
 }
 
@@ -185,7 +217,6 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
     popupAnchor: [0, -50]
   });
 
-  // Собираем popup
   let popupContent = `<div class="popup-card">`;
   popupContent += `<div class="popup-header" style="background: ${style.bg}">`;
   popupContent += `<span class="popup-category">${category}</span>`;
@@ -196,7 +227,7 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   popupContent += `<h4>${title}</h4>`;
   if (desc) popupContent += `<p>${desc}</p>`;
   if (photoUrl) {
-    popupContent += `<img src="${photoUrl}" class="popup-photo" alt="фото" onclick="window.open('${photoUrl}', '_blank')" />`;
+    popupContent += `<img src="${photoUrl}" class="popup-photo" alt="фото" loading="lazy" onclick="window.open('${photoUrl}', '_blank')" />`;
   }
   popupContent += `</div>`;
   
@@ -212,16 +243,6 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   marker.bindPopup(popupContent, { maxWidth: 300, className: 'custom-popup' });
   marker.placeId = id;
   return marker;
-}
-
-// ===== ЗАГРУЗКА ФОТО =====
-async function uploadPhoto(file) {
-  if (!file) return null;
-  const timestamp = Date.now();
-  const filename = `places/${currentUser}_${timestamp}_${file.name}`;
-  const storageRef = ref(storage, filename);
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
 }
 
 // ===== СОХРАНИТЬ МЕСТО =====
@@ -240,16 +261,18 @@ document.getElementById('save-marker-btn').addEventListener('click', async () =>
     return;
   }
 
-  try {
-    const saveBtn = document.getElementById('save-marker-btn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ Сохраняю...';
+  const saveBtn = document.getElementById('save-marker-btn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = '⏳ Сохраняю...';
 
+  try {
+    // Загружаем фото в Cloudinary
     let photoUrl = null;
     if (selectedPhotoFile) {
-      photoUrl = await uploadPhoto(selectedPhotoFile);
+      photoUrl = await uploadPhotoToCloudinary(selectedPhotoFile);
     }
 
+    // Сохраняем в Firestore
     const docRef = await addDoc(collection(db, "places"), {
       lat: currentClickLatLng.lat,
       lng: currentClickLatLng.lng,
@@ -266,9 +289,8 @@ document.getElementById('save-marker-btn').addEventListener('click', async () =>
 
   } catch (e) {
     console.error("Ошибка:", e);
-    alert("Ошибка сохранения! Проверь Firestore rules.");
+    alert("Ошибка сохранения!");
   } finally {
-    const saveBtn = document.getElementById('save-marker-btn');
     saveBtn.disabled = false;
     saveBtn.textContent = '💾 Сохранить';
   }
@@ -281,7 +303,6 @@ window.deletePlace = async function(id) {
   try {
     await deleteDoc(doc(db, "places", id));
     
-    // Удаляем комментарии
     const commentsQuery = query(collection(db, "comments"), where("placeId", "==", id));
     const commentsSnap = await getDocs(commentsQuery);
     commentsSnap.forEach(async (c) => {
@@ -304,7 +325,6 @@ window.openComments = async function(placeId, placeTitle) {
   currentPlaceId = placeId;
   commentsPlaceTitle.textContent = `💬 ${placeTitle}`;
   commentsModal.classList.remove('hidden');
-  
   await loadComments(placeId);
 };
 
@@ -345,7 +365,6 @@ async function loadComments(placeId) {
       commentsList.appendChild(commentEl);
     });
     
-    // Скролл вниз
     commentsList.scrollTop = commentsList.scrollHeight;
     
   } catch (e) {
@@ -383,7 +402,6 @@ document.getElementById('send-comment-btn').addEventListener('click', async () =
   }
 });
 
-// Enter для отправки комментария
 commentText.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
@@ -409,7 +427,7 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ===== ЗАГРУЗКА ВСЕХ МЕСТ =====
+// ===== ЗАГРУЗКА МЕСТ =====
 async function loadPlaces() {
   try {
     const snapshot = await getDocs(collection(db, "places"));
