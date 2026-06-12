@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Наше путешествие</title>
+    
+    <!-- Подключаем стили карты Leaflet через интернет -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Подключаем наш файл стилей -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Таймер до встречи -->
+    <div id="countdown" class="overlay">
+      <h1>До встречи осталось:</h1>
+      <h2 id="timer">...</h2>
+      <button id="enter-btn">Войти на карту</button>
+    </div>
+
+    <!-- Здесь будет карта -->
+    <div id="map"></div>
+
+    <!-- Подключаем скрипт карты Leaflet через интернет -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Подключаем наш скрипт -->
+    <script src="main.js"></script>
+  </body>
+</html>
