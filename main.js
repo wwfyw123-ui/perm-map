@@ -26,6 +26,41 @@ const db = getFirestore(app);
 const CLOUDINARY_CLOUD_NAME = 'dbtwgtle5';
 const CLOUDINARY_UPLOAD_PRESET = 'travel_map';
 
+// ===== ПОГОДА (OpenWeatherMap) =====
+const WEATHER_API_KEY = '6557868bfdf720da69b269cf729a596a';
+const PERM_LAT = 58.0105;
+const PERM_LON = 56.2502;
+
+async function fetchWeather() {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${PERM_LAT}&lon=${PERM_LON}&appid=${WEATHER_API_KEY}&units=metric&lang=ru`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Weather API error: ' + response.status);
+        const data = await response.json();
+        renderWeather(data);
+    } catch (e) {
+        console.error('Ошибка погоды:', e);
+        const widget = document.getElementById('weather-widget');
+        if (widget) widget.innerHTML = `<div class="weather-error">🌤️</div>`;
+    }
+}
+
+function renderWeather(data) {
+    const widget = document.getElementById('weather-widget');
+    if (!widget) return;
+    const temp = Math.round(data.main.temp);
+    const icon = data.weather[0].icon;
+    const desc = data.weather[0].description;
+    widget.innerHTML = `
+        <div class="weather-card">
+            <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${desc}">
+            <span class="weather-temp">${temp}°</span>
+            <span class="weather-desc">${desc}</span>
+        </div>`;
+}
+
+setInterval(fetchWeather, 600000);
+
 // ===== ПЕРСОНАЖИ =====
 const BOY = {
   id: 'boy', name: 'Леша', emoji: '🧑', color: '#3498db',
@@ -51,13 +86,48 @@ function initTheme() {
         themeBtn.addEventListener('click', () => {
             document.body.classList.toggle('dark-theme');
             localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+            updateMapTheme();
         });
     }
 }
 
-// ===== ГЕОЛОКАЦИЯ =====
+// ===== ЯНДЕКС.КАРТЫ =====
+let map;
+let markers = {};
 let userLocationMarker = null;
 
+function updateMapTheme() {
+    if (!map) return;
+    const isDark = document.body.classList.contains('dark-theme');
+    map.setType(isDark ? 'yandex#night' : 'yandex#map');
+}
+
+function initMap() {
+    map = new ymaps.Map("map", {
+        center: [58.0105, 56.2502],
+        zoom: 13,
+        controls: ['zoomControl']
+    });
+    map.controls.remove('searchControl').remove('trafficControl').remove('typeSelector');
+    
+    updateMapTheme();
+    
+    // Клик по карте
+    map.events.add('click', function(e) {
+        if (!currentUser) return;
+        const coords = e.get('coords');
+        currentClickLatLng = { lat: coords[0], lng: coords[1] };
+        modal.classList.remove('hidden');
+    });
+    
+    loadPlaces();
+}
+
+function svgToDataUri(svg) {
+    return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+}
+
+// ===== ГЕОЛОКАЦИЯ =====
 function initGeolocation() {
     if (!navigator.geolocation) {
         console.log('Геолокация не поддерживается');
@@ -72,17 +142,31 @@ function initGeolocation() {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     
-                    if (userLocationMarker) map.removeLayer(userLocationMarker);
+                    if (userLocationMarker) {
+                        map.geoObjects.remove(userLocationMarker);
+                    }
                     
-                    const pulseIcon = L.divIcon({
-                        className: 'pulse-marker',
-                        html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10]
+                    const pulseSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                        <style>
+                            @keyframes pulseRing {
+                                0% { r: 8; opacity: 0.6; }
+                                100% { r: 20; opacity: 0; }
+                            }
+                            .ring { animation: pulseRing 2s infinite; transform-origin: center; }
+                        </style>
+                        <circle cx="20" cy="20" r="8" fill="#3498db" class="ring"/>
+                        <circle cx="20" cy="20" r="6" fill="#3498db"/>
+                    </svg>`;
+                    
+                    userLocationMarker = new ymaps.Placemark([lat, lng], {}, {
+                        iconLayout: 'default#image',
+                        iconImageHref: svgToDataUri(pulseSvg),
+                        iconImageSize: [40, 40],
+                        iconImageOffset: [-20, -20]
                     });
                     
-                    userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
-                    map.setView([lat, lng], 15);
+                    map.geoObjects.add(userLocationMarker);
+                    map.setCenter([lat, lng], 15);
                     
                     showDistanceToPerm(lat, lng);
                 },
@@ -106,10 +190,9 @@ function showDistanceToPerm(lat, lng) {
     const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
     const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     
-    L.popup()
-        .setLatLng([lat, lng])
-        .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
-        .openOn(map);
+    map.balloon.open([lat, lng], {
+        contentBody: `📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`
+    });
 }
 
 // ===== LIVE ИНДИКАТОР + УВЕДОМЛЕНИЯ =====
@@ -159,13 +242,6 @@ function requestNotificationPermission() {
         Notification.requestPermission();
     }
 }
-
-// ===== КАРТА =====
-const permCoords = [58.0105, 56.2502];
-const map = L.map('map').setView(permCoords, 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '&copy; OpenStreetMap'
-}).addTo(map);
 
 let currentUser = null;
 let currentClickLatLng = null;
@@ -241,13 +317,6 @@ photoInput.addEventListener('change', (e) => {
   reader.readAsDataURL(file);
 });
 
-// ===== КЛИК ПО КАРТЕ =====
-map.on('click', function(e) {
-  if (!currentUser) return;
-  currentClickLatLng = e.latlng;
-  modal.classList.remove('hidden');
-});
-
 // ===== ЗАКРЫТИЕ МОДАЛОК =====
 function closeModal() {
   modal.classList.add('hidden');
@@ -293,17 +362,23 @@ async function uploadPhotoToCloudinary(file) {
 function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   const isBoy = author === 'boy';
   const bg = isBoy ? '#3498db' : '#e91e63';
-  const shadow = isBoy ? 'rgba(52,152,219,0.4)' : 'rgba(233,30,99,0.4)';
+  const shadowColor = isBoy ? '#667eea' : '#f5576c';
   const userData = isBoy ? BOY : GIRL;
   
-  const customIcon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="marker-pin" style="background:${bg};box-shadow:0 4px 15px ${shadow};border:3px solid white;">
-      <span class="marker-emoji">${category}</span>
-      <div class="marker-author">${userData.emoji}</div>
-    </div>`,
-    iconSize: [40, 48], iconAnchor: [20, 48], popupAnchor: [0, -50]
-  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
+    <defs>
+      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="${shadowColor}" flood-opacity="0.4"/>
+      </filter>
+    </defs>
+    <path d="M20 0 C10 0, 0 10, 0 20 C0 35, 20 48, 20 48 C20 48, 40 35, 40 20 C40 10, 30 0, 20 0Z" 
+          fill="${bg}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
+    <text x="20" y="20" font-size="18" text-anchor="middle" dominant-baseline="central">${category}</text>
+    <circle cx="32" cy="8" r="9" fill="white" stroke="${bg}" stroke-width="1.5"/>
+    <text x="32" y="11" font-size="11" text-anchor="middle" dominant-baseline="central">${userData.emoji}</text>
+  </svg>`;
+  
+  const iconUrl = svgToDataUri(svg);
 
   let popup = `<div class="popup-card">`;
   popup += `<div class="popup-header" style="background:${bg}">`;
@@ -317,10 +392,19 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   if (author === currentUser) popup += `<button class="delete-btn" onclick="deletePlace('${id}')">🗑</button>`;
   popup += `</div></div>`;
 
-  const marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
-  marker.bindPopup(popup, { maxWidth: 300, className: 'custom-popup' });
-  marker.placeId = id;
-  return marker;
+  const placemark = new ymaps.Placemark([lat, lng], {
+    balloonContent: popup
+  }, {
+    iconLayout: 'default#image',
+    iconImageHref: iconUrl,
+    iconImageSize: [40, 48],
+    iconImageOffset: [-20, -48],
+    iconShape: { type: 'Circle', coordinates: [20, 24], radius: 20 }
+  });
+
+  map.geoObjects.add(placemark);
+  markers[id] = placemark;
+  return placemark;
 }
 
 // ===== СОХРАНИТЬ МЕСТО =====
@@ -362,7 +446,11 @@ window.deletePlace = async function(id) {
     const q = query(collection(db, "comments"), where("placeId", "==", id));
     const snap = await getDocs(q);
     snap.forEach(async (c) => { await deleteDoc(doc(db, "comments", c.id)); });
-    map.eachLayer((layer) => { if (layer instanceof L.Marker && layer.placeId === id) map.removeLayer(layer); });
+    
+    if (markers[id]) {
+      map.geoObjects.remove(markers[id]);
+      delete markers[id];
+    }
   } catch (e) { console.error(e); alert("Не удалось удалить: " + e.message); }
 };
 
@@ -413,7 +501,7 @@ async function loadComments(placeId) {
     
   } catch (e) {
     console.error("Ошибка загрузки комментариев:", e);
-    commentsList.innerHTML = `<div class="error">Ошибка загрузки 💔<<br><small>${e.message}</small></div>`;
+    commentsList.innerHTML = `<div class="error">Ошибка загрузки 💔<br><small>${e.message}</small></div>`;
   }
 }
 
@@ -487,10 +575,13 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
   
-  setTimeout(() => { map.invalidateSize(); loadPlaces(); }, 600);
+  if (!map) {
+    ymaps.ready(initMap);
+  }
   
   requestNotificationPermission();
   initLiveIndicator();
+  fetchWeather();
 });
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
