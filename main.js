@@ -8,7 +8,7 @@ window.addEventListener('error', (e) => {
 
 // ===== FIREBASE =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCZH3ZrRWqhr25goGwGjJUHCqCiYoHxqiM",
@@ -36,6 +36,143 @@ const GIRL = {
   id: 'girl', name: 'Лера', emoji: '👩', color: '#e91e63',
   gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
 };
+
+// ===== ТЁМНАЯ ТЕМА =====
+function initTheme() {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.body.classList.add('dark-theme');
+    }
+    
+    // Кнопка переключения (добавим в HTML)
+    const themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+        });
+    }
+}
+
+// ===== ГЕОЛОКАЦИЯ =====
+let userLocationMarker = null;
+
+function initGeolocation() {
+    if (!navigator.geolocation) {
+        console.log('Геолокация не поддерживается');
+        return;
+    }
+    
+    // Кнопка "Где я?" (добавим в HTML)
+    const locateBtn = document.getElementById('locate-btn');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', () => {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    // Удаляем старый маркер
+                    if (userLocationMarker) map.removeLayer(userLocationMarker);
+                    
+                    // Создаём пульсирующий маркер
+                    const pulseIcon = L.divIcon({
+                        className: 'pulse-marker',
+                        html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    });
+                    
+                    userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
+                    map.setView([lat, lng], 15);
+                    
+                    // Показываем расстояние до Перми
+                    showDistanceToPerm(lat, lng);
+                },
+                (err) => {
+                    console.error('Геолокация ошибка:', err);
+                    alert('Не удалось получить геолокацию. Проверь разрешения.');
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        });
+    }
+}
+
+function showDistanceToPerm(lat, lng) {
+    const permLat = 58.0105;
+    const permLng = 56.2502;
+    
+    // Расстояние по формуле гаверсинусов
+    const R = 6371;
+    const dLat = (permLat - lat) * Math.PI / 180;
+    const dLng = (permLng - lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
+    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    
+    // Показываем на карте
+    const distancePopup = L.popup()
+        .setLatLng([lat, lng])
+        .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
+        .openOn(map);
+}
+
+// ===== LIVE ИНДИКАТОР + УВЕДОМЛЕНИЯ =====
+let lastPlacesCount = 0;
+let isFirstLoad = true;
+
+function initLiveIndicator() {
+    // Слушаем изменения в реальном времени
+    onSnapshot(collection(db, "places"), (snapshot) => {
+        const count = snapshot.size;
+        
+        // Показываем индикатор "кто-то онлайн"
+        const indicator = document.getElementById('live-indicator');
+        if (indicator) {
+            indicator.classList.add('active');
+            setTimeout(() => indicator.classList.remove('active'), 3000);
+        }
+        
+        // Уведомление о новой метке (не первый раз)
+        if (!isFirstLoad && count > lastPlacesCount) {
+            showNotification('💕 Новая метка!', 'Кто-то добавил место на карту');
+        }
+        
+        lastPlacesCount = count;
+        isFirstLoad = false;
+    });
+}
+
+function showNotification(title, body) {
+    // Вибрация (на мобильных)
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    
+    // Визуальное уведомление на сайте
+    const notif = document.createElement('div');
+    notif.className = 'in-app-notification';
+    notif.innerHTML = `<strong>${title}</strong><br>${body}`;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => notif.classList.add('show'), 100);
+    setTimeout(() => {
+        notif.classList.remove('show');
+        setTimeout(() => notif.remove(), 300);
+    }, 4000);
+    
+    // Попробуем системное уведомление (если разрешено)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: 'icon-192.png' });
+    }
+}
+
+// Запрос разрешения на уведомления
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
 
 // ===== КАРТА =====
 const permCoords = [58.0105, 56.2502];
@@ -243,7 +380,7 @@ window.deletePlace = async function(id) {
   } catch (e) { console.error(e); alert("Не удалось удалить: " + e.message); }
 };
 
-// ===== КОММЕНТАРИИ (БЕЗ orderBy — СОРТИРОВКА ВРУЧНУЮ) =====
+// ===== КОММЕНТАРИИ =====
 window.openComments = async function(placeId, placeTitle) {
   currentPlaceId = placeId;
   commentsPlaceTitle.textContent = `💬 ${placeTitle}`;
@@ -255,7 +392,6 @@ async function loadComments(placeId) {
   commentsList.innerHTML = '<div class="loading">Загрузка...</div>';
   
   try {
-    // УБРАЛ orderBy — Firebase НЕ требует индекс!
     const q = query(collection(db, "comments"), where("placeId", "==", placeId));
     const snap = await getDocs(q);
     
@@ -264,7 +400,6 @@ async function loadComments(placeId) {
       return;
     }
     
-    // СОРТИРУЕМ ВРУЧНУЮ НА КЛИЕНТЕ
     const comments = [];
     snap.forEach((doc) => { comments.push({ id: doc.id, ...doc.data() }); });
     comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -366,4 +501,12 @@ document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
   setTimeout(() => { map.invalidateSize(); loadPlaces(); }, 600);
+  
+  // Запрашиваем уведомления при входе
+  requestNotificationPermission();
+  initLiveIndicator();
 });
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+initTheme();
+initGeolocation();
