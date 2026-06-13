@@ -213,9 +213,9 @@ body.dark-theme .weather-card {
   transform: scale(1.05);
 }
 
-.weather-card img {
-  width: 32px;
-  height: 32px;
+.weather-emoji {
+  font-size: 22px;
+  line-height: 1;
 }
 
 .weather-temp {
@@ -795,7 +795,7 @@ body.dark-theme .weather-card {
   .control-panel { top: 10px; right: 10px; }
   .in-app-notification { right: 10px; max-width: 250px; }
   .weather-card { padding: 4px 8px; }
-  .weather-card img { width: 24px; height: 24px; }
+  .weather-emoji { font-size: 16px; }
   .weather-temp { font-size: 14px; }
   .weather-desc { display: none; }
 }
