@@ -709,7 +709,7 @@ function showNotification(title, body) {
     setTimeout(() => notif.classList.add('show'), 100);
     setTimeout(() => { notif.classList.remove('show'); setTimeout(() => notif.remove(), 300); }, 4000);
     if ('Notification' in window && Notification.permission === 'granted')
-        new Notification(title, { body, icon: 'icon-192.png' });
+        new Notification(title, { body, icon: './icon-192.png' });
 }
 
 function requestNotificationPermission() {
