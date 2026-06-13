@@ -31,40 +31,85 @@ const WEATHER_API_KEY = '6557868bfdf720da69b269cf729a596a';
 const PERM_LAT = 58.0105;
 const PERM_LON = 56.2502;
 
-async function fetchWeather() {
-    const widget = document.getElementById('weather-widget');
-    if (widget && !widget.innerHTML.includes('weather-card')) {
-        widget.innerHTML = `<div class="weather-card"><span class="weather-temp">⏳</span></div>`;
-    }
-    try {
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${PERM_LAT}&lon=${PERM_LON}&appid=${WEATHER_API_KEY}&units=metric&lang=ru`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Weather API error: ' + response.status);
-        const data = await response.json();
-        renderWeather(data);
-    } catch (e) {
-        console.error('Ошибка погоды:', e);
-        if (widget) widget.innerHTML = `<div class="weather-error">🌤️</div>`;
-    }
+const WEATHER_CACHE_KEY = 'weather_cache';
+const WEATHER_CACHE_TTL = 30 * 60 * 1000; // 30 минут
+
+function getWeatherEmoji(iconCode) {
+    const map = {
+        '01d': '☀️', '01n': '🌙',
+        '02d': '⛅', '02n': '⛅',
+        '03d': '☁️', '03n': '☁️',
+        '04d': '☁️', '04n': '☁️',
+        '09d': '🌧️', '09n': '🌧️',
+        '10d': '🌦️', '10n': '🌧️',
+        '11d': '⛈️', '11n': '⛈️',
+        '13d': '❄️', '13n': '❄️',
+        '50d': '🌫️', '50n': '🌫️',
+    };
+    return map[iconCode] || '🌤️';
 }
 
 function renderWeather(data) {
     const widget = document.getElementById('weather-widget');
     if (!widget) return;
-    const temp = Math.round(data.main.temp);
-    const icon = data.weather[0].icon;
-    const desc = data.weather[0].description;
+    const temp  = Math.round(data.main.temp);
+    const feels = Math.round(data.main.feels_like);
+    const emoji = getWeatherEmoji(data.weather[0].icon);
+    const wind  = Math.round(data.wind.speed);
     widget.innerHTML = `
-        <div class="weather-card">
-            <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${desc}">
+        <div class="weather-card" title="Ощущается как ${feels}° · Ветер ${wind} м/с">
+            <span class="weather-emoji">${emoji}</span>
             <span class="weather-temp">${temp}°</span>
-            <span class="weather-desc">${desc}</span>
+            <span class="weather-desc">ощущается ${feels}°</span>
         </div>`;
 }
 
-// Обновляем погоду каждые 10 минут
-setInterval(fetchWeather, 600000);
-// Грузим погоду сразу при загрузке страницы
+function loadWeatherFromCache() {
+    try {
+        const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+        if (!raw) return false;
+        const { data, timestamp } = JSON.parse(raw);
+        // Показываем кэш даже если устарел — всё лучше чем пусто
+        renderWeather(data);
+        return Date.now() - timestamp < WEATHER_CACHE_TTL;
+    } catch {
+        return false;
+    }
+}
+
+async function fetchWeather() {
+    // Сначала мгновенно рисуем из кэша
+    const cacheIsFresh = loadWeatherFromCache();
+
+    // Если кэш свежий — не делаем запрос
+    if (cacheIsFresh) return;
+
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${PERM_LAT}&lon=${PERM_LON}&appid=${WEATHER_API_KEY}&units=metric&lang=ru`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Weather API error: ' + response.status);
+        const data = await response.json();
+
+        // Сохраняем в кэш
+        localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
+
+        renderWeather(data);
+    } catch (e) {
+        console.error('Ошибка погоды:', e);
+        // Если запрос упал но кэш есть — ничего не делаем, кэш уже показан
+        const widget = document.getElementById('weather-widget');
+        if (widget && !widget.innerHTML.includes('weather-card')) {
+            widget.innerHTML = `<div class="weather-error">🌤️</div>`;
+        }
+    }
+}
+
+// Обновляем каждые 30 минут
+setInterval(fetchWeather, WEATHER_CACHE_TTL);
+// Грузим сразу — из кэша мгновенно, из сети в фоне
 fetchWeather();
 
 // ===== ПЕРСОНАЖИ =====
