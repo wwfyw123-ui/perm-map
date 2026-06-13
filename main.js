@@ -26,38 +26,35 @@ const db = getFirestore(app);
 const CLOUDINARY_CLOUD_NAME = 'dbtwgtle5';
 const CLOUDINARY_UPLOAD_PRESET = 'travel_map';
 
-// ===== ПОГОДА (OpenWeatherMap) =====
-const WEATHER_API_KEY = '6557868bfdf720da69b269cf729a596a';
+// ===== ПОГОДА (Open-Meteo — бесплатно, без ключа) =====
 const PERM_LAT = 58.0105;
 const PERM_LON = 56.2502;
+const WEATHER_CACHE_KEY = 'weather_cache_v2';
+const WEATHER_CACHE_TTL = 30 * 60 * 1000;
 
-const WEATHER_CACHE_KEY = 'weather_cache';
-const WEATHER_CACHE_TTL = 30 * 60 * 1000; // 30 минут
-
-function getWeatherEmoji(iconCode) {
-    const map = {
-        '01d': '☀️', '01n': '🌙',
-        '02d': '⛅', '02n': '⛅',
-        '03d': '☁️', '03n': '☁️',
-        '04d': '☁️', '04n': '☁️',
-        '09d': '🌧️', '09n': '🌧️',
-        '10d': '🌦️', '10n': '🌧️',
-        '11d': '⛈️', '11n': '⛈️',
-        '13d': '❄️', '13n': '❄️',
-        '50d': '🌫️', '50n': '🌫️',
-    };
-    return map[iconCode] || '🌤️';
+function getWeatherEmoji(code, isDay) {
+    if (code === 0)        return isDay ? '☀️' : '🌙';
+    if (code <= 2)         return isDay ? '⛅' : '🌤️';
+    if (code === 3)        return '☁️';
+    if (code <= 48)        return '🌫️';
+    if (code <= 55)        return '🌦️';
+    if (code <= 65)        return '🌧️';
+    if (code <= 75)        return '❄️';
+    if (code <= 82)        return '🌧️';
+    if (code <= 86)        return '🌨️';
+    return '⛈️';
 }
 
 function renderWeather(data) {
     const widget = document.getElementById('weather-widget');
     if (!widget) return;
-    const temp  = Math.round(data.main.temp);
-    const feels = Math.round(data.main.feels_like);
-    const emoji = getWeatherEmoji(data.weather[0].icon);
-    const wind  = Math.round(data.wind.speed);
+    const c     = data.current;
+    const temp  = Math.round(c.temperature_2m);
+    const feels = Math.round(c.apparent_temperature);
+    const wind  = Math.round(c.wind_speed_10m);
+    const emoji = getWeatherEmoji(c.weather_code, c.is_day);
     widget.innerHTML = `
-        <div class="weather-card" title="Ощущается как ${feels}° · Ветер ${wind} м/с">
+        <div class="weather-card" title="Ощущается как ${feels}° · Ветер ${wind} км/ч">
             <span class="weather-emoji">${emoji}</span>
             <span class="weather-temp">${temp}°</span>
             <span class="weather-desc">ощущается ${feels}°</span>
@@ -69,7 +66,6 @@ function loadWeatherFromCache() {
         const raw = localStorage.getItem(WEATHER_CACHE_KEY);
         if (!raw) return false;
         const { data, timestamp } = JSON.parse(raw);
-        // Показываем кэш даже если устарел — всё лучше чем пусто
         renderWeather(data);
         return Date.now() - timestamp < WEATHER_CACHE_TTL;
     } catch {
@@ -78,28 +74,18 @@ function loadWeatherFromCache() {
 }
 
 async function fetchWeather() {
-    // Сначала мгновенно рисуем из кэша
     const cacheIsFresh = loadWeatherFromCache();
-
-    // Если кэш свежий — не делаем запрос
     if (cacheIsFresh) return;
 
     try {
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${PERM_LAT}&lon=${PERM_LON}&appid=${WEATHER_API_KEY}&units=metric&lang=ru`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${PERM_LAT}&longitude=${PERM_LON}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&timezone=Europe%2FMoscow`;
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Weather API error: ' + response.status);
+        if (!response.ok) throw new Error('Weather error: ' + response.status);
         const data = await response.json();
-
-        // Сохраняем в кэш
-        localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
-            data,
-            timestamp: Date.now()
-        }));
-
+        localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
         renderWeather(data);
     } catch (e) {
         console.error('Ошибка погоды:', e);
-        // Если запрос упал но кэш есть — ничего не делаем, кэш уже показан
         const widget = document.getElementById('weather-widget');
         if (widget && !widget.innerHTML.includes('weather-card')) {
             widget.innerHTML = `<div class="weather-error">🌤️</div>`;
@@ -107,9 +93,7 @@ async function fetchWeather() {
     }
 }
 
-// Обновляем каждые 30 минут
 setInterval(fetchWeather, WEATHER_CACHE_TTL);
-// Грузим сразу — из кэша мгновенно, из сети в фоне
 fetchWeather();
 
 // ===== ПЕРСОНАЖИ =====
