@@ -1,12 +1,12 @@
-const CACHE_NAME = 'travel-map-v10';
+const CACHE_NAME = 'travel-map-v11';
 const STATIC = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/main.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  './',
+  './index.html',
+  './style.css',
+  './main.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
@@ -29,7 +29,7 @@ self.addEventListener('fetch', (e) => {
   // Для навигации — сначала сеть, фоллбэк на кэш
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/index.html'))
+      fetch(e.request).catch(() => caches.match('./index.html'))
     );
     return;
   }
