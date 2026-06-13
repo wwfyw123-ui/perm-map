@@ -32,6 +32,10 @@ const PERM_LAT = 58.0105;
 const PERM_LON = 56.2502;
 
 async function fetchWeather() {
+    const widget = document.getElementById('weather-widget');
+    if (widget && !widget.innerHTML.includes('weather-card')) {
+        widget.innerHTML = `<div class="weather-card"><span class="weather-temp">⏳</span></div>`;
+    }
     try {
         const url = `https://api.openweathermap.org/data/2.5/weather?lat=${PERM_LAT}&lon=${PERM_LON}&appid=${WEATHER_API_KEY}&units=metric&lang=ru`;
         const response = await fetch(url);
@@ -40,7 +44,6 @@ async function fetchWeather() {
         renderWeather(data);
     } catch (e) {
         console.error('Ошибка погоды:', e);
-        const widget = document.getElementById('weather-widget');
         if (widget) widget.innerHTML = `<div class="weather-error">🌤️</div>`;
     }
 }
@@ -59,7 +62,10 @@ function renderWeather(data) {
         </div>`;
 }
 
+// Обновляем погоду каждые 10 минут
 setInterval(fetchWeather, 600000);
+// Грузим погоду сразу при загрузке страницы
+fetchWeather();
 
 // ===== ПЕРСОНАЖИ =====
 const BOY = {
@@ -76,11 +82,11 @@ const GIRL = {
 function initTheme() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedTheme = localStorage.getItem('theme');
-    
+
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
         document.body.classList.add('dark-theme');
     }
-    
+
     const themeBtn = document.getElementById('theme-toggle');
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
@@ -129,13 +135,13 @@ function selectCharacter(user) {
   currentUser = user;
   const userData = user === 'boy' ? BOY : GIRL;
   localStorage.setItem('travelUser', user);
-  
+
   document.getElementById('current-user-display').textContent = `${userData.emoji} ${userData.name}`;
   modalAuthor.textContent = `${userData.emoji} ${userData.name === 'Леша' ? 'Моя метка' : 'Её метка'}`;
   commentAuthor.textContent = userData.emoji;
   modalAuthor.className = `author-badge ${user}`;
   commentAuthor.className = `comment-author-badge ${user}`;
-  
+
   characterSelect.classList.add('hidden');
   countdown.classList.remove('hidden');
 }
@@ -206,7 +212,7 @@ async function uploadPhotoToCloudinary(file) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  
+
   try {
     const response = await fetch(url, { method: 'POST', body: formData });
     if (!response.ok) throw new Error('Upload failed: ' + response.status);
@@ -225,7 +231,7 @@ function addMarkerToMap(id, lat, lng, title, desc, category, photoUrl, author) {
   const bg = isBoy ? '#3498db' : '#e91e63';
   const shadow = isBoy ? 'rgba(52,152,219,0.4)' : 'rgba(233,30,99,0.4)';
   const userData = isBoy ? BOY : GIRL;
-  
+
   const customIcon = L.divIcon({
     className: 'custom-div-icon',
     html: `<div class="marker-pin" style="background:${bg};box-shadow:0 4px 15px ${shadow};border:3px solid white;">
@@ -306,25 +312,25 @@ window.openComments = async function(placeId, placeTitle) {
 
 async function loadComments(placeId) {
   commentsList.innerHTML = '<div class="loading">Загрузка...</div>';
-  
+
   try {
     const q = query(collection(db, "comments"), where("placeId", "==", placeId));
     const snap = await getDocs(q);
-    
+
     if (snap.empty) {
       commentsList.innerHTML = '<div class="no-comments">Пока нет комментариев. Будь первым! 💕</div>';
       return;
     }
-    
+
     const comments = [];
     snap.forEach((doc) => { comments.push({ id: doc.id, ...doc.data() }); });
     comments.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    
+
     commentsList.innerHTML = '';
     comments.forEach((data) => {
       const userData = data.author === 'boy' ? BOY : GIRL;
       const isMe = data.author === currentUser;
-      
+
       const el = document.createElement('div');
       el.className = `comment ${isMe ? 'comment-mine' : 'comment-hers'}`;
       el.innerHTML = `
@@ -338,9 +344,9 @@ async function loadComments(placeId) {
         </div>`;
       commentsList.appendChild(el);
     });
-    
+
     commentsList.scrollTop = commentsList.scrollHeight;
-    
+
   } catch (e) {
     console.error("Ошибка загрузки комментариев:", e);
     commentsList.innerHTML = `<div class="error">Ошибка загрузки 💔<br><small>${e.message}</small></div>`;
@@ -350,19 +356,19 @@ async function loadComments(placeId) {
 document.getElementById('send-comment-btn').addEventListener('click', async () => {
   const text = commentText.value.trim();
   if (!text || !currentPlaceId) return;
-  
+
   try {
     const btn = document.getElementById('send-comment-btn');
     btn.disabled = true; btn.textContent = '...';
-    
+
     await addDoc(collection(db, "comments"), {
       placeId: currentPlaceId, author: currentUser, text,
       createdAt: new Date().toISOString()
     });
-    
+
     commentText.value = '';
     await loadComments(currentPlaceId);
-    
+
   } catch (e) {
     console.error("Ошибка отправки:", e);
     alert("Не удалось отправить: " + e.message);
@@ -381,11 +387,11 @@ commentText.addEventListener('keydown', (e) => {
 
 // ===== УТИЛИТЫ =====
 function formatTime(iso) {
-  const d = new Date(iso), n = new Date(), diff = (n-d)/1000;
+  const d = new Date(iso), n = new Date(), diff = (n - d) / 1000;
   if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff/60)} мин назад`;
-  if (diff < 86400) return `${Math.floor(diff/3600)} ч назад`;
-  return `${d.getDate()}.${d.getMonth()+1}`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
+  return `${d.getDate()}.${d.getMonth() + 1}`;
 }
 
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
@@ -407,7 +413,7 @@ const meetingDate = new Date('2026-06-23T06:00:00');
 function updateTimer() {
   const diff = meetingDate - new Date();
   if (diff <= 0) { document.getElementById('timer').innerText = "Мы вместе! 💖🎉"; return; }
-  const d = Math.floor(diff/86400000), h = Math.floor((diff%86400000)/3600000), m = Math.floor((diff%3600000)/60000);
+  const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
   document.getElementById('timer').innerText = `${d}д ${h}ч ${m}м`;
 }
 setInterval(updateTimer, 1000); updateTimer();
@@ -420,7 +426,7 @@ function initGeolocation() {
         console.log('Геолокация не поддерживается');
         return;
     }
-    
+
     const locateBtn = document.getElementById('locate-btn');
     if (locateBtn) {
         locateBtn.addEventListener('click', () => {
@@ -428,19 +434,19 @@ function initGeolocation() {
                 (position) => {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    
+
                     if (userLocationMarker) map.removeLayer(userLocationMarker);
-                    
+
                     const pulseIcon = L.divIcon({
                         className: 'pulse-marker',
                         html: `<div class="pulse-dot"></div><div class="pulse-ring"></div>`,
                         iconSize: [20, 20],
                         iconAnchor: [10, 10]
                     });
-                    
+
                     userLocationMarker = L.marker([lat, lng], { icon: pulseIcon }).addTo(map);
                     map.setView([lat, lng], 15);
-                    
+
                     showDistanceToPerm(lat, lng);
                 },
                 (err) => {
@@ -456,13 +462,13 @@ function initGeolocation() {
 function showDistanceToPerm(lat, lng) {
     const permLat = 58.0105;
     const permLng = 56.2502;
-    
+
     const R = 6371;
     const dLat = (permLat - lat) * Math.PI / 180;
     const dLng = (permLng - lng) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat * Math.PI/180) * Math.cos(permLat * Math.PI/180) * Math.sin(dLng/2)**2;
-    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-    
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * Math.PI / 180) * Math.cos(permLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    const distance = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+
     L.popup()
         .setLatLng([lat, lng])
         .setContent(`📍 Ты здесь<br>🚗 ${distance} км до Перми<br>💕 Скоро увидимся!`)
@@ -476,17 +482,17 @@ let isFirstLoad = true;
 function initLiveIndicator() {
     onSnapshot(collection(db, "places"), (snapshot) => {
         const count = snapshot.size;
-        
+
         const indicator = document.getElementById('live-indicator');
         if (indicator) {
             indicator.classList.add('active');
             setTimeout(() => indicator.classList.remove('active'), 3000);
         }
-        
+
         if (!isFirstLoad && count > lastPlacesCount) {
             showNotification('💕 Новая метка!', 'Кто-то добавил место на карту');
         }
-        
+
         lastPlacesCount = count;
         isFirstLoad = false;
     });
@@ -494,18 +500,18 @@ function initLiveIndicator() {
 
 function showNotification(title, body) {
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    
+
     const notif = document.createElement('div');
     notif.className = 'in-app-notification';
     notif.innerHTML = `<strong>${title}</strong><br>${body}`;
     document.body.appendChild(notif);
-    
+
     setTimeout(() => notif.classList.add('show'), 100);
     setTimeout(() => {
         notif.classList.remove('show');
         setTimeout(() => notif.remove(), 300);
     }, 4000);
-    
+
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, { body, icon: 'icon-192.png' });
     }
@@ -521,12 +527,11 @@ function requestNotificationPermission() {
 document.getElementById('enter-btn').addEventListener('click', () => {
   countdown.classList.add('hidden');
   legend.classList.remove('hidden');
-  
+
   setTimeout(() => { map.invalidateSize(); loadPlaces(); }, 600);
-  
+
   requestNotificationPermission();
   initLiveIndicator();
-  fetchWeather();
 });
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
